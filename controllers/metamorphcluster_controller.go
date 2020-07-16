@@ -42,8 +42,6 @@ type MetamorphClusterReconciler struct {
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metamorphclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cluster.x-k8s.io,resources=clusters;clusters/status,verbs=get;list;watch
 
-// Reconcile reads that state of the cluster for a MetamorphCluster object and makes changes based on the state read
-// and what is in the MetamorphCluster.Spec
 func (r *MetamorphClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
 	ctx := context.Background()
 	clusterLog := r.Log.WithValues("namespace", req.Namespace, "metamorphcluster", req.Name)
