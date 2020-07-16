@@ -53,11 +53,11 @@ type MetamorphClusterStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=openstackclusters,scope=Namespaced,categories=cluster-api
+// +kubebuilder:resource:path=metamorphclusters,scope=Namespaced,categories=cluster-api
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this OpenStackCluster belongs"
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Cluster infrastructure is ready for OpenStack instances"
+// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this MetamorphCluster belongs"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Cluster infrastructure is ready for Metamorph instances"
 // +kubebuilder:printcolumn:name="Network",type="string",JSONPath=".status.network.id",description="Network the cluster is using"
 // +kubebuilder:printcolumn:name="Subnet",type="string",JSONPath=".status.network.subnet.id",description="Subnet the cluster is using"
 // +kubebuilder:printcolumn:name="Endpoint",type="string",JSONPath=".status.network.apiServerLoadBalancer.ip",description="API Endpoint",priority=1

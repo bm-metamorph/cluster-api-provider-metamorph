@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	capm "github.com/bm-metamorph/cluster-api-provider-metamorph/api/v1alpha3"
+	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -85,7 +85,7 @@ func (r *MetamorphClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 		return ctrl.Result{}, errors.Wrap(err, "failed to initialize patch helper")
 	}
 
-	// Always patch the openStackCluster when exiting this function so we can persist any OpenStackCluster changes.
+	// Always patch the metamorphCluster when exiting this function so we can persist any MetamorphCluster changes.
 	defer func() {
 		if err := patchHelper.Patch(ctx, metamorphCluster); err != nil {
 			if reterr == nil {
@@ -108,68 +108,11 @@ func (r *MetamorphClusterReconciler) reconcileDelete(ctx context.Context, log lo
 	log.Info("Reconciling Cluster delete")
 
 	clusterName := fmt.Sprintf("%s-%s", cluster.Namespace, cluster.Name)
-	osProviderClient, clientOpts, err := provider.NewClientFromCluster(r.Client, openStackCluster)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
 
-	networkingService, err := networking.NewService(osProviderClient, clientOpts, log)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	loadBalancerService, err := loadbalancer.NewService(osProviderClient, clientOpts, log, openStackCluster.Spec.UseOctavia)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if openStackCluster.Spec.ManagedAPIServerLoadBalancer {
-		err = loadBalancerService.DeleteLoadBalancer(clusterName, openStackCluster)
-		if err != nil {
-			return reconcile.Result{}, errors.Errorf("failed to delete load balancer: %v", err)
-		}
-	}
-
-	// Delete other things
-	if openStackCluster.Status.WorkerSecurityGroup != nil {
-		log.Info("Deleting worker security group", "name", openStackCluster.Status.WorkerSecurityGroup.Name)
-		err := networkingService.DeleteSecurityGroups(openStackCluster.Status.WorkerSecurityGroup)
-		if err != nil {
-			return reconcile.Result{}, errors.Errorf("failed to delete security group: %v", err)
-		}
-	}
-
-	if openStackCluster.Status.ControlPlaneSecurityGroup != nil {
-		log.Info("Deleting control plane security group", "name", openStackCluster.Status.ControlPlaneSecurityGroup.Name)
-		err := networkingService.DeleteSecurityGroups(openStackCluster.Status.ControlPlaneSecurityGroup)
-		if err != nil {
-			return reconcile.Result{}, errors.Errorf("failed to delete security group: %v", err)
-		}
-	}
-
-	if openStackCluster.Status.Network.Router != nil {
-		log.Info("Deleting router", "name", openStackCluster.Status.Network.Router.Name)
-		if err := networkingService.DeleteRouter(openStackCluster.Status.Network); err != nil {
-			return ctrl.Result{}, errors.Errorf("failed to delete router: %v", err)
-		}
-		log.Info("OpenStack router deleted successfully")
-	}
-
-	// if NodeCIDR was not set, no network was created.
-	if openStackCluster.Status.Network != nil && openStackCluster.Spec.NodeCIDR != "" {
-		log.Info("Deleting network", "name", openStackCluster.Status.Network.Name)
-		if err := networkingService.DeleteNetwork(openStackCluster.Status.Network); err != nil {
-			return ctrl.Result{}, errors.Errorf("failed to delete network: %v", err)
-		}
-		log.Info("OpenStack network deleted successfully")
-	}
-
-	log.Info("OpenStack cluster deleted successfully")
+	log.Info("Metamorph cluster deleted successfully")
 
 	// Cluster is deleted so remove the finalizer.
-	controllerutil.RemoveFinalizer(openStackCluster, infrav1.ClusterFinalizer)
-	log.Info("Reconciled Cluster delete successfully")
-	if err := patchHelper.Patch(ctx, openStackCluster); err != nil {
+	if err := patchHelper.Patch(ctx, metamorphCluster); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil

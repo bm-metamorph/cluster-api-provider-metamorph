@@ -22,7 +22,7 @@ import (
 
 	resty "github.com/go-resty/resty/v2"
 	"github.com/go-logr/logr"
-	capm "github.com/bm-metamorph/cluster-api-provider-metamorph/api/v1alpha3"
+	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

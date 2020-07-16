@@ -23,7 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 
-	capm "github.com/bm-metamorph/cluster-api-provider-metamorph/api/v1alpha3"
+	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	capi "sigs.k8s.io/cluster-api/api/v1alpha3"
 	capierrors "sigs.k8s.io/cluster-api/errors"

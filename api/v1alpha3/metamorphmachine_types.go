@@ -76,14 +76,14 @@ type MetamorphMachineStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=openstackmachines,scope=Namespaced,categories=cluster-api
+// +kubebuilder:resource:path=metamorphmachines,scope=Namespaced,categories=cluster-api
 // +kubebuilder:storageversion
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this OpenStackMachine belongs"
-// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.instanceState",description="OpenStack instance state"
+// +kubebuilder:printcolumn:name="Cluster",type="string",JSONPath=".metadata.labels.cluster\\.x-k8s\\.io/cluster-name",description="Cluster to which this MetamorphMachine belongs"
+// +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.instanceState",description="Metamorph node state"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.ready",description="Machine ready status"
-// +kubebuilder:printcolumn:name="InstanceID",type="string",JSONPath=".spec.providerID",description="OpenStack instance ID"
-// +kubebuilder:printcolumn:name="Machine",type="string",JSONPath=".metadata.ownerReferences[?(@.kind==\"Machine\")].name",description="Machine object which owns with this OpenStackMachine"
+// +kubebuilder:printcolumn:name="InstanceID",type="string",JSONPath=".spec.providerID",description="Metamorph instance ID"
+// +kubebuilder:printcolumn:name="Machine",type="string",JSONPath=".metadata.ownerReferences[?(@.kind==\"Machine\")].name",description="Machine object which owns with this MetamorphMachine"
 
 // MetamorphMachine is the Schema for the metamorphmachines API
 type MetamorphMachine struct {
