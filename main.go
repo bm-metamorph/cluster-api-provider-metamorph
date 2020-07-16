@@ -26,8 +26,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	infrastructurev1alpha3 "github.com/metamorph/cluster-api-provider-metamorph/api/v1alpha3"
-	"github.com/metamorph/cluster-api-provider-metamorph/controllers"
+	infrastructurev1alpha3 "github.com/gpsingh-1991/metamorph/cluster-api-provider-metamorph/api/v1alpha3"
+	"github.com/gpsingh-1991/metamorph/cluster-api-provider-metamorph/controllers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -59,7 +59,7 @@ func main() {
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
 		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "aa4cbcdf.cluster.x-k8s.io",
+		LeaderElectionID:   "2fb2c3cf.cluster.x-k8s.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
