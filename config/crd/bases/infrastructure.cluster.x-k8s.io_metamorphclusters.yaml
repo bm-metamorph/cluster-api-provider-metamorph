@@ -1,0 +1,108 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.9
+  creationTimestamp: null
+  name: metamorphclusters.infrastructure.cluster.x-k8s.io
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.labels.cluster\.x-k8s\.io/cluster-name
+    description: Cluster to which this MetamorphCluster belongs
+    name: Cluster
+    type: string
+  - JSONPath: .status.ready
+    description: Cluster infrastructure is ready for Metamorph instances
+    name: Ready
+    type: string
+  - JSONPath: .status.network.id
+    description: Network the cluster is using
+    name: Network
+    type: string
+  - JSONPath: .status.network.subnet.id
+    description: Subnet the cluster is using
+    name: Subnet
+    type: string
+  - JSONPath: .status.network.apiServerLoadBalancer.ip
+    description: API Endpoint
+    name: Endpoint
+    priority: 1
+    type: string
+  group: infrastructure.cluster.x-k8s.io
+  names:
+    categories:
+    - cluster-api
+    kind: MetamorphCluster
+    listKind: MetamorphClusterList
+    plural: metamorphclusters
+    singular: metamorphcluster
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: MetamorphCluster is the Schema for the metamorphclusters API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: MetamorphClusterSpec defines the desired state of MetamorphCluster
+          properties:
+            controlPlaneEndpoint:
+              description: ControlPlaneEndpoint APIEndpoint `json:"controlPlaneEndpoint"`
+              properties:
+                host:
+                  description: The hostname on which the API server is serving.
+                  type: string
+                port:
+                  description: The port on which the API server is serving.
+                  format: int32
+                  type: integer
+              required:
+              - host
+              - port
+              type: object
+          required:
+          - controlPlaneEndpoint
+          type: object
+        status:
+          description: MetamorphClusterStatus defines the observed state of MetamorphCluster
+          properties:
+            failureMessage:
+              description: FailureMessage indicates that there is a fatal problem
+                reconciling the state, and will be set to a descriptive error message.
+              type: string
+            failureReason:
+              description: FailureReason indicates that there is a fatal problem reconciling
+                the state, and will be set to a token value suitable for programmatic
+                interpretation.
+              type: string
+            ready:
+              type: boolean
+          required:
+          - ready
+          type: object
+      type: object
+  version: v1alpha3
+  versions:
+  - name: v1alpha3
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

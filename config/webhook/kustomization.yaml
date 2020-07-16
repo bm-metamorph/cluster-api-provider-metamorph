@@ -1,0 +1,10 @@
+namespace: capm-system
+
+namePrefix: capm-
+
+resources:
+- manifests.yaml
+- service.yaml
+
+configurations:
+- kustomizeconfig.yaml
