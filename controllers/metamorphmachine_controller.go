@@ -60,6 +60,7 @@ type MetamorphMachineReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 
+// Reconcile reconiles
 func (r *MetamorphMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
 	ctx = context.TODO()
 	logger = r.Log.WithValues("namespace", req.Namespace, "MeamorphMachine", req.Name)
