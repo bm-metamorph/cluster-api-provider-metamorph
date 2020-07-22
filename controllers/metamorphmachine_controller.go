@@ -304,6 +304,7 @@ func (r *MetamorphMachineReconciler) MetamorphClusterToMetamorphMachines(o handl
 	result := []ctrl.Request{}
 
 	fmt.Println("Iam in this shit now=============================")
+	fmt.Println("Kya main chala?")
 	c, ok := o.Object.(*capm.MetamorphCluster)
 	if !ok {
 		r.Log.Error(errors.Errorf("expected a MetamorphCluster but got a %T", o.Object), "failed to get MetamorphMachine for MetamorphCluster")
