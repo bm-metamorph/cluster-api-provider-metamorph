@@ -18,34 +18,52 @@ package controllers
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	resty "github.com/go-resty/resty/v2"
-	"github.com/go-logr/logr"
 	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
-	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
+
+	//"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	infrastructurev1alpha3 "github.com/metamorph/cluster-api-provider-metamorph/api/v1alpha3"
 )
 
 const (
 	waitForClusterInfrastructureReadyDuration = 15 * time.Second
 	machineControllerName                     = "MetamorphMachine-controller"
-	RetryIntervalInstanceStatus               = 10 * time.Second
-	metamorphEndpoint												=	"http://metamorph-api.metamorph:8080/"
+	metamorphEndpoint                         = "http://metamorph-api.metamorph:8080/"
 )
+
+var pausePredicates = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return !util.IsPaused(nil, e.MetaNew)
+	},
+	CreateFunc: func(e event.CreateEvent) bool {
+		return !util.IsPaused(nil, e.Meta)
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return !util.IsPaused(nil, e.Meta)
+	},
+}
 
 // MetamorphMachineReconciler reconciles a MetamorphMachine object
 type MetamorphMachineReconciler struct {
@@ -62,27 +80,40 @@ type MetamorphMachineReconciler struct {
 
 // Reconcile reconiles
 func (r *MetamorphMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
-	ctx = context.TODO()
-	logger = r.Log.WithValues("namespace", req.Namespace, "MeamorphMachine", req.Name)
+	fmt.Println("Kya main chala?")
+	ctx := context.TODO()
+	logger := r.Log.WithValues("namespace", req.Namespace, "MeamorphMachine", req.Name)
 
 	// Fetch the Metamorphmachine instance
 	metamorphMachine := &capm.MetamorphMachine{}
 	err := r.Get(ctx, req.NamespacedName, metamorphMachine)
-	if err != nil{
+	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	// Fetch the Machine
+	// Fetch the Machine.
+	machine, err := util.GetOwnerMachine(ctx, r.Client, metamorphMachine.ObjectMeta)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if machine == nil {
+		logger.Info("Machine Controller has not yet set OwnerRef")
+		return ctrl.Result{}, nil
+	}
+
+	logger = logger.WithValues("machine", machine.Name)
+
+	// Fetch the Cluster.
 	cluster, err := util.GetClusterFromMetadata(ctx, r.Client, machine.ObjectMeta)
 	if err != nil {
 		logger.Info("Machine is missing cluster label or cluster does not exist")
 		return ctrl.Result{}, nil
 	}
 
-	if isPaused(cluster, metamorphMachine) {
+	if util.IsPaused(cluster, metamorphMachine) {
 		logger.Info("MetamorphMachine or linked Cluster is marked as paused. Won't reconcile")
 		return ctrl.Result{}, nil
 	}
@@ -128,47 +159,44 @@ func (r *MetamorphMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 }
 
 // SetupWithManager sets
-func (r *MetamorphMachineReconciler) SetupWithManager(mgr ctrl.Manager, options controller.Options) error {
-	controller, err := NewControllerManagedBy(mgr).
+func (r *MetamorphMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
 		For(&capm.MetamorphMachine{}).
 		Watches(
 			&source.Kind{Type: &clusterv1.Machine{}},
 			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: util.MachineToInfrastructureMapFunc(infrav1.GroupVersion.WithKind("MetamorphMachine")),
+				ToRequests: util.MachineToInfrastructureMapFunc(capm.GroupVersion.WithKind("MetamorphMachine")),
 			},
 		).
 		Watches(
-			&source.Kind{Type: &infrav1.MetmorphCluster{}},
-			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(r.MetamorphClusterToMetamorphMachines)},
-		).
-		WithEventFilter(pausePredicates).
-		Build(r)
-
-		if err != nil {
-			return err
-		}
-
-		return controller.Watch(
-			&source.Kind{Type: &clusterv1.Cluster{}},
+			&source.Kind{Type: &capm.MetamorphCluster{}},
 			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: handler.ToRequestsFunc(r.requeueMetamorphMachinesForUnpausedCluster),
+				ToRequests: handler.ToRequestsFunc(r.MetamorphClusterToMetamorphMachines),
 			},
-			predicate.Funcs{
-				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldCluster := e.ObjectOld.(*clusterv1.Cluster)
-					newCluster := e.ObjectNew.(*clusterv1.Cluster)
-					return oldCluster.Spec.Paused && !newCluster.Spec.Paused
-				},
-				CreateFunc: func(e event.CreateEvent) bool {
-					cluster := e.Object.(*clusterv1.Cluster)
-					return !cluster.Spec.Paused
-				},
-				DeleteFunc: func(e event.DeleteEvent) bool {
-					return false
-				},
-			},
-		)
-	}
+		).
+		Complete(r)
+
+	// return controller.Watch(
+	// 	&source.Kind{Type: &clusterv1.Cluster{}},
+	// 	&handler.EnqueueRequestsFromMapFunc{
+	// 		ToRequests: handler.ToRequestsFunc(r.requeueMetamorphMachinesForUnpausedCluster),
+	// 	},
+	// 	predicate.Funcs{
+	// 		UpdateFunc: func(e event.UpdateEvent) bool {
+	// 			oldCluster := e.ObjectOld.(*clusterv1.Cluster)
+	// 			newCluster := e.ObjectNew.(*clusterv1.Cluster)
+	// 			return oldCluster.Spec.Paused && !newCluster.Spec.Paused
+	// 		},
+	// 		CreateFunc: func(e event.CreateEvent) bool {
+	// 			cluster := e.Object.(*clusterv1.Cluster)
+	// 			return !cluster.Spec.Paused
+	// 		},
+	// 		DeleteFunc: func(e event.DeleteEvent) bool {
+	// 			return false
+	// 		},
+	// 	},
+	// )
+}
 
 func (r *MetamorphMachineReconciler) reconcileNormal(ctx context.Context, logger logr.Logger, patchHelper *patch.Helper, machine *clusterv1.Machine, metamorphMachine *capm.MetamorphMachine, cluster *clusterv1.Cluster, metamorphCluster *capm.MetamorphCluster) (_ ctrl.Result, reterr error) {
 	// If the MetamorphMachine is in an error state, return early.
@@ -194,33 +222,39 @@ func (r *MetamorphMachineReconciler) reconcileNormal(ctx context.Context, logger
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	userData, err := r.getBootstrapData(machine, metamorphMachine)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	//userData, err := r.getBootstrapData(machine, metamorphMachine)
+	//if err != nil {
+	//	return ctrl.Result{}, err
+	//}
 
 	logger.Info("Creating Machine")
 
-	clusterName := fmt.Sprintf("%s-%s", cluster.ObjectMeta.Namespace, cluster.Name)
+	//clusterName := fmt.Sprintf("%s-%s", cluster.ObjectMeta.Namespace, cluster.Name)
 
-	if !metamorphMachine.Spec.IPMIDetails.Address {
+	if metamorphMachine.Spec.IPMIDetails.Address == "" {
 		logger.Info("Node Address missing.")
 		return ctrl.Result{}, nil
 	}
 
 	nodeIPAddress := strings.Split(metamorphMachine.Spec.IPMIDetails.Address, "/")[2]
-	log.Info("Node IPMI IP address retrieved ", nodeIPAddress)
+	logger.Info("Node IPMI IP address retrieved ", nodeIPAddress)
 
 	secret := &corev1.Secret{}
 	key := types.NamespacedName{
 		Namespace: machine.Namespace,
-		Name: metamorphMachine.Spec.IPMIDetails.CredentialsName,
+		Name:      metamorphMachine.Spec.IPMIDetails.CredentialsName,
 	}
 	if err := r.Client.Get(context.TODO(), key, secret); err != nil {
-		return "", errors.Wrapf(err, "failed to retrieve IPMI Credentials for Metamorph Machine %s/%s", machine.Namespace, metamorphMachine.Name)
+		err = errors.Wrapf(err, "failed to retrieve IPMI Credentials for Metamorph Machine %s/%s", machine.Namespace, metamorphMachine.Name)
+		return ctrl.Result{}, err
 	}
 	userName, ok := secret.Data["username"]
 	password, ok := secret.Data["password"]
+
+	if !ok {
+		err := errors.New("error retrieving bootstrap data: secret value key is missing")
+		return ctrl.Result{}, err
+	}
 
 	crdinfoString := " { \"name\" : \"%v\"," +
 		" \"ISOURL\" : \"%v\", " +
@@ -239,7 +273,7 @@ func (r *MetamorphMachineReconciler) reconcileNormal(ctx context.Context, logger
 		nodeIPAddress,
 		metamorphMachine.Spec.IPMIDetails.DisableCertificateVerification,
 	)
-	log.Info(crdinfoString)
+	logger.Info(crdinfoString)
 	metamorphNodeEndpoint := metamorphEndpoint + "node"
 
 	resultBody := make(map[string]interface{})
@@ -253,15 +287,87 @@ func (r *MetamorphMachineReconciler) reconcileNormal(ctx context.Context, logger
 	if (err == nil) && (resp.StatusCode() == http.StatusOK) {
 		err = json.Unmarshal(resp.Body(), &resultBody)
 	} else {
-		log.Info("Trace info:", resp.Request.TraceInfo())
-		return nil, errors.Wrap(err, fmt.Sprintf("Post request failed : URL - %v, reqbody - %v", metamorphNodeEndpoint, crdinfoString ))
+		logger.Info("Trace info:", resp.Request.TraceInfo())
+		err = errors.Wrap(err, fmt.Sprintf("Post request failed : URL - %v, reqbody - %v", metamorphNodeEndpoint, crdinfoString))
+		return ctrl.Result{}, err
 	}
 
-	nodeUUID := resultBody["result"]
-	log.Info(fmt.Sprintf("Node UUID retrieved %v\n", nodeUUID))
+	nodeUUID := resultBody["result"].(string)
+	logger.Info(fmt.Sprintf("Node UUID retrieved %v\n", nodeUUID))
 
-	metamorphMachine.Status.ProviderID = nodeUUID
+	metamorphMachine.Status.ProviderID = &nodeUUID
 
+	return ctrl.Result{}, nil
+}
+
+func (r *MetamorphMachineReconciler) MetamorphClusterToMetamorphMachines(o handler.MapObject) []ctrl.Request {
+	result := []ctrl.Request{}
+
+	fmt.Println("Iam in this shit now=============================")
+	c, ok := o.Object.(*capm.MetamorphCluster)
+	if !ok {
+		r.Log.Error(errors.Errorf("expected a MetamorphCluster but got a %T", o.Object), "failed to get MetamorphMachine for MetamorphCluster")
+		return nil
+	}
+	log := r.Log.WithValues("MetamorphCluster", c.Name, "Namespace", c.Namespace)
+
+	cluster, err := util.GetOwnerCluster(context.TODO(), r.Client, c.ObjectMeta)
+	switch {
+	case apierrors.IsNotFound(err) || cluster == nil:
+		return result
+	case err != nil:
+		log.Error(err, "failed to get owning cluster")
+		return result
+	}
+
+	labels := map[string]string{clusterv1.ClusterLabelName: cluster.Name}
+	machineList := &clusterv1.MachineList{}
+	if err := r.List(context.TODO(), machineList, client.InNamespace(c.Namespace), client.MatchingLabels(labels)); err != nil {
+		log.Error(err, "failed to list Machines")
+		return nil
+	}
+	for _, m := range machineList.Items {
+		if m.Spec.InfrastructureRef.Name == "" {
+			continue
+		}
+		name := client.ObjectKey{Namespace: m.Namespace, Name: m.Spec.InfrastructureRef.Name}
+		result = append(result, ctrl.Request{NamespacedName: name})
+	}
+
+	return result
+}
+
+func (r *MetamorphMachineReconciler) requeueMetamorphMachinesForUnpausedCluster(o handler.MapObject) []ctrl.Request {
+	c, ok := o.Object.(*clusterv1.Cluster)
+	if !ok {
+		r.Log.Error(errors.Errorf("expected a Cluster but got a %T", o.Object), "failed to get MetamorphMachines for unpaused Cluster")
+		return nil
+	}
+
+	// Don't handle deleted clusters
+	if !c.ObjectMeta.DeletionTimestamp.IsZero() {
+		return nil
+	}
+
+	return r.requestsForCluster(c.Namespace, c.Name)
+}
+
+func (r *MetamorphMachineReconciler) requestsForCluster(namespace, name string) []ctrl.Request {
+	log := r.Log.WithValues("Cluster", name, "Namespace", namespace)
+	labels := map[string]string{clusterv1.ClusterLabelName: name}
+	machineList := &clusterv1.MachineList{}
+	if err := r.Client.List(context.TODO(), machineList, client.InNamespace(namespace), client.MatchingLabels(labels)); err != nil {
+		log.Error(err, "failed to get owned Machines")
+		return nil
+	}
+
+	result := make([]ctrl.Request, 0, len(machineList.Items))
+	for _, m := range machineList.Items {
+		if m.Spec.InfrastructureRef.Name != "" {
+			result = append(result, ctrl.Request{NamespacedName: client.ObjectKey{Namespace: m.Namespace, Name: m.Spec.InfrastructureRef.Name}})
+		}
+	}
+	return result
 }
 
 func (r *MetamorphMachineReconciler) getBootstrapData(machine *clusterv1.Machine, metamorphMachine *capm.MetamorphMachine) (string, error) {
@@ -284,6 +390,8 @@ func (r *MetamorphMachineReconciler) getBootstrapData(machine *clusterv1.Machine
 }
 
 func (r *MetamorphMachineReconciler) reconcileDelete(ctx context.Context, logger logr.Logger, patchHelper *patch.Helper, machine *clusterv1.Machine, metamorphMachine *capm.MetamorphMachine, cluster *clusterv1.Cluster, metamorphCluster *capm.MetamorphCluster) (_ ctrl.Result, reterr error) {
-		logger.Info("Handling deleted MetamorphMachine")
+	logger.Info("Handling deleted MetamorphMachine")
 
-		clusterName := fmt.Sprintf("%s-%s", cluster.ObjectMeta.Namespace, cluster.Name)
+	//clusterName := fmt.Sprintf("%s-%s", cluster.ObjectMeta.Namespace, cluster.Name)
+	return ctrl.Result{}, nil
+}

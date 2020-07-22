@@ -18,17 +18,24 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/pointer"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
+)
 
-	infrastructurev1alpha3 "github.com/metamorph/cluster-api-provider-metamorph/api/v1alpha3"
+const (
+	requeueAfter          = time.Second * 30
 )
 
 // MetamorphClusterReconciler reconciles a MetamorphCluster object
@@ -68,7 +75,7 @@ func (r *MetamorphClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 
 	}
 
-	if isPaused(cluster, metamorphCluster) {
+	if util.IsPaused(cluster, metamorphCluster) {
 		clusterLog.Info("MetamorphCluster or linked Cluster is marked as paused. Won't reconcile")
 		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
 	}
@@ -107,7 +114,7 @@ func (r *MetamorphClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 func (r *MetamorphClusterReconciler) reconcileDelete(ctx context.Context, log logr.Logger, patchHelper *patch.Helper, cluster *clusterv1.Cluster, metamorphCluster *capm.MetamorphCluster) (ctrl.Result, error) {
 	log.Info("Reconciling Cluster delete")
 
-	clusterName := fmt.Sprintf("%s-%s", cluster.Namespace, cluster.Name)
+	//clusterName := fmt.Sprintf("%s-%s", cluster.Namespace, cluster.Name)
 
 	log.Info("Metamorph cluster deleted successfully")
 
@@ -118,8 +125,17 @@ func (r *MetamorphClusterReconciler) reconcileDelete(ctx context.Context, log lo
 	return ctrl.Result{}, nil
 }
 
+func (r *MetamorphClusterReconciler) reconcileNormal(ctx context.Context, log logr.Logger, patchHelper *patch.Helper, cluster *clusterv1.Cluster, metamorphCluster *capm.MetamorphCluster) (ctrl.Result, error) {
+	log.Info("Reconciling Cluster")
+
+
+	metamorphCluster.Status.Ready = true
+	log.Info("Reconciled Cluster create successfully")
+	return ctrl.Result{}, nil
+}
+
 func (r *MetamorphClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&infrastructurev1alpha3.MetamorphCluster{}).
+		For(&capm.MetamorphCluster{}).
 		Complete(r)
 }
