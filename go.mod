@@ -1,4 +1,4 @@
-module github.com/gpsingh-1991/metamorph/cluster-api-provider-metamorph
+module github.com/gpsingh-1991/cluster-api-provider-metamorph
 
 go 1.13
 
