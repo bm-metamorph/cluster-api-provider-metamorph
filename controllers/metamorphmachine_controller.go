@@ -80,7 +80,6 @@ type MetamorphMachineReconciler struct {
 
 // Reconcile reconiles
 func (r *MetamorphMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
-	fmt.Println("Kya main chala?")
 	ctx := context.TODO()
 	logger := r.Log.WithValues("namespace", req.Namespace, "MeamorphMachine", req.Name)
 
@@ -160,10 +159,12 @@ func (r *MetamorphMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 
 // SetupWithManager sets
 func (r *MetamorphMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	x := clusterv1.Machine{}
+	fmt.Println("Printing x\n", x)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&capm.MetamorphMachine{}).
 		Watches(
-			&source.Kind{Type: &clusterv1.Machine{}},
+			&source.Kind{Type: &x},
 			&handler.EnqueueRequestsFromMapFunc{
 				ToRequests: util.MachineToInfrastructureMapFunc(capm.GroupVersion.WithKind("MetamorphMachine")),
 			},
@@ -304,7 +305,7 @@ func (r *MetamorphMachineReconciler) MetamorphClusterToMetamorphMachines(o handl
 	result := []ctrl.Request{}
 
 	fmt.Println("Iam in this shit now=============================")
-	fmt.Println("Kya main chala?")
+	fmt.Println("Iam in this shit now=============================")
 	c, ok := o.Object.(*capm.MetamorphCluster)
 	if !ok {
 		r.Log.Error(errors.Errorf("expected a MetamorphCluster but got a %T", o.Object), "failed to get MetamorphMachine for MetamorphCluster")
