@@ -28,10 +28,10 @@ import (
 	"github.com/go-logr/logr"
 	resty "github.com/go-resty/resty/v2"
 	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
+	"github.com/gpsingh1991/cluster-api-provider-metamorph/pkg/record"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
@@ -68,8 +68,8 @@ var pausePredicates = predicate.Funcs{
 // MetamorphMachineReconciler reconciles a MetamorphMachine object
 type MetamorphMachineReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log      logr.Logger
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metamorphmachines,verbs=get;list;watch;create;update;patch;delete
@@ -159,12 +159,10 @@ func (r *MetamorphMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 
 // SetupWithManager sets
 func (r *MetamorphMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	x := clusterv1.Machine{}
-	fmt.Println("Printing x\n", x)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&capm.MetamorphMachine{}).
 		Watches(
-			&source.Kind{Type: &x},
+			&source.Kind{Type: &clusterv1.Machine{}},
 			&handler.EnqueueRequestsFromMapFunc{
 				ToRequests: util.MachineToInfrastructureMapFunc(capm.GroupVersion.WithKind("MetamorphMachine")),
 			},
