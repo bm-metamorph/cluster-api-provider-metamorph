@@ -87,6 +87,7 @@ func (r *MetamorphMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 	metamorphMachine := &capm.MetamorphMachine{}
 	logger.Info("Metamorph machine details:")
 	logger.Info(metamorphMachine.Spec.Image.URL)
+	logger.Info("Printing details", metamorphMachine.Online)
 	err := r.Get(ctx, req.NamespacedName, metamorphMachine)
 	if err != nil {
 		if apierrors.IsNotFound(err) {

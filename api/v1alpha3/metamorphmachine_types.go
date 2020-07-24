@@ -37,7 +37,7 @@ type MetamorphMachineSpec struct {
 
 	UserData *corev1.SecretReference `json:"userData,omitempty"`
 
-	IPMIDetails IPMIDetails `json:"IPMISecret,omitempty"`
+	IPMIDetails IPMIDetails `json:"IPMIDetails,omitempty"`
 }
 
 // MetamorphMachineStatus defines the observed state of MetamorphMachine
