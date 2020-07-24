@@ -28,11 +28,11 @@ import (
 	"github.com/go-logr/logr"
 	resty "github.com/go-resty/resty/v2"
 	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
-	"github.com/gpsingh1991/cluster-api-provider-metamorph/pkg/record"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
@@ -81,10 +81,12 @@ type MetamorphMachineReconciler struct {
 // Reconcile reconiles
 func (r *MetamorphMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
 	ctx := context.TODO()
-	logger := r.Log.WithValues("namespace", req.Namespace, "MeamorphMachine", req.Name)
+	logger := r.Log.WithValues("namespace", req.Namespace, "MeamtorphMachine", req.Name)
 
 	// Fetch the Metamorphmachine instance
 	metamorphMachine := &capm.MetamorphMachine{}
+	logger.Info("Metamorph machine details:")
+	logger.Info(metamorphMachine.Spec.Image.URL)
 	err := r.Get(ctx, req.NamespacedName, metamorphMachine)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
