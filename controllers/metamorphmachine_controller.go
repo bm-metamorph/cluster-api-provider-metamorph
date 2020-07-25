@@ -85,9 +85,6 @@ func (r *MetamorphMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 
 	// Fetch the Metamorphmachine instance
 	metamorphMachine := &capm.MetamorphMachine{}
-	logger.Info("Metamorph machine details:")
-	logger.Info(metamorphMachine.Spec.Image.URL)
-	logger.Info("Printing details", metamorphMachine.Spec.Online)
 	err := r.Get(ctx, req.NamespacedName, metamorphMachine)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -97,6 +94,10 @@ func (r *MetamorphMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 	}
 
 	// Fetch the Machine.
+	obj := metamorphMachine.ObjectMeta
+	for _, ref := range obj.OwnerReferences {
+		logger.Info("machine ref: ", ref.Kind)
+	}
 	machine, err := util.GetOwnerMachine(ctx, r.Client, metamorphMachine.ObjectMeta)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -304,9 +305,6 @@ func (r *MetamorphMachineReconciler) reconcileNormal(ctx context.Context, logger
 
 func (r *MetamorphMachineReconciler) MetamorphClusterToMetamorphMachines(o handler.MapObject) []ctrl.Request {
 	result := []ctrl.Request{}
-
-	fmt.Println("Iam in this shit now=============================")
-	fmt.Println("Iam in this shit now=============================")
 	c, ok := o.Object.(*capm.MetamorphCluster)
 	if !ok {
 		r.Log.Error(errors.Errorf("expected a MetamorphCluster but got a %T", o.Object), "failed to get MetamorphMachine for MetamorphCluster")

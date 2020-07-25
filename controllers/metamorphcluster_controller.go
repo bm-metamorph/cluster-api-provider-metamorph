@@ -21,21 +21,25 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
 	"github.com/pkg/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/pointer"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	ctrl "sigs.k8s.io/controller-runtime"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/cluster-api/util"
 	"sigs.k8s.io/cluster-api/util/patch"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
-	requeueAfter          = time.Second * 30
+	requeueAfter = time.Second * 30
 )
 
 // MetamorphClusterReconciler reconciles a MetamorphCluster object
@@ -128,6 +132,14 @@ func (r *MetamorphClusterReconciler) reconcileDelete(ctx context.Context, log lo
 func (r *MetamorphClusterReconciler) reconcileNormal(ctx context.Context, log logr.Logger, patchHelper *patch.Helper, cluster *clusterv1.Cluster, metamorphCluster *capm.MetamorphCluster) (ctrl.Result, error) {
 	log.Info("Reconciling Cluster")
 
+	// If the OpenStackCluster doesn't have our finalizer, add it.
+	controllerutil.AddFinalizer(metamorphCluster, capm.ClusterFinalizer)
+	// Register the finalizer immediately to avoid orphaning Metamorph resources on delete
+	if err := patchHelper.Patch(ctx, metamorphCluster); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	log.Info("Got Cluster info==", metamorphCluster.Spec.ControlPlaneEndpoint.Host)
 
 	metamorphCluster.Status.Ready = true
 	log.Info("Reconciled Cluster create successfully")
@@ -137,5 +149,13 @@ func (r *MetamorphClusterReconciler) reconcileNormal(ctx context.Context, log lo
 func (r *MetamorphClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&capm.MetamorphCluster{}).
+		Watches(
+			&source.Kind{Type: &clusterv1.Cluster{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: util.ClusterToInfrastructureMapFunc(
+					capm.GroupVersion.WithKind("MetamorphCluster"),
+				),
+			},
+		).
 		Complete(r)
 }
