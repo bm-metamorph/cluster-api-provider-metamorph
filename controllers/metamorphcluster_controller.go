@@ -24,7 +24,7 @@ import (
 	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/pointer"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	capierrors "sigs.k8s.io/cluster-api/errors"
@@ -45,8 +45,8 @@ const (
 // MetamorphClusterReconciler reconciles a MetamorphCluster object
 type MetamorphClusterReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Recorder record.EventRecorder
+	Log      logr.Logger
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=metamorphclusters,verbs=get;list;watch;create;update;patch;delete
@@ -56,8 +56,8 @@ type MetamorphClusterReconciler struct {
 // Reconcile reads that state of the cluster for a MetamorphCluster object and makes changes based on the state read
 // and what is in the MetamorphCluster.Spec
 func (r *MetamorphClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
-	ctx := context.Background()
-	clusterLog := r.Log.WithValues("namespace", req.Namespace, "metamorphcluster", req.Name)
+	ctx := context.TODO()
+	log := r.Log.WithValues("namespace", req.Namespace, "metamorphcluster", req.Name)
 
 	// Fetch the MetamorphCluster instance
 	metamorphCluster := &capm.MetamorphCluster{}
@@ -71,6 +71,7 @@ func (r *MetamorphClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, metamorphCluster.ObjectMeta)
+	log.Info("Printing cluster details: ", cluster)
 	if err != nil {
 		error := capierrors.InvalidConfigurationClusterError
 		metamorphCluster.Status.FailureReason = &error
@@ -80,16 +81,16 @@ func (r *MetamorphClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 	}
 
 	if util.IsPaused(cluster, metamorphCluster) {
-		clusterLog.Info("MetamorphCluster or linked Cluster is marked as paused. Won't reconcile")
+		log.Info("MetamorphCluster or linked Cluster is marked as paused. Won't reconcile")
 		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
 	}
 
 	if cluster == nil {
-		clusterLog.Info("Cluster Controller has not yet set OwnerRef on MetamorphCluster")
+		log.Info("Cluster Controller has not yet set OwnerRef on MetamorphCluster")
 		return ctrl.Result{}, nil
 	}
 
-	clusterLog = clusterLog.WithValues("cluster", cluster.Name)
+	log = log.WithValues("cluster", cluster.Name)
 
 	patchHelper, err := patch.NewHelper(metamorphCluster, r)
 	if err != nil {
@@ -100,7 +101,7 @@ func (r *MetamorphClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 	defer func() {
 		if err := patchHelper.Patch(ctx, metamorphCluster); err != nil {
 			if reterr == nil {
-				clusterLog.Error(err, "failed to Patch metamorphCluster")
+				log.Error(err, "failed to Patch metamorphCluster")
 				reterr = errors.Wrapf(err, "error patching MetamorphCluster %s/%s", metamorphCluster.Namespace, metamorphCluster.Name)
 			}
 		}
@@ -108,11 +109,11 @@ func (r *MetamorphClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 
 	// Handle deleted clusters
 	if !metamorphCluster.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, clusterLog, patchHelper, cluster, metamorphCluster)
+		return r.reconcileDelete(ctx, log, patchHelper, cluster, metamorphCluster)
 	}
 
 	// Handle non-deleted clusters
-	return r.reconcileNormal(ctx, clusterLog, patchHelper, cluster, metamorphCluster)
+	return r.reconcileNormal(ctx, log, patchHelper, cluster, metamorphCluster)
 }
 
 func (r *MetamorphClusterReconciler) reconcileDelete(ctx context.Context, log logr.Logger, patchHelper *patch.Helper, cluster *clusterv1.Cluster, metamorphCluster *capm.MetamorphCluster) (ctrl.Result, error) {
@@ -132,7 +133,7 @@ func (r *MetamorphClusterReconciler) reconcileDelete(ctx context.Context, log lo
 func (r *MetamorphClusterReconciler) reconcileNormal(ctx context.Context, log logr.Logger, patchHelper *patch.Helper, cluster *clusterv1.Cluster, metamorphCluster *capm.MetamorphCluster) (ctrl.Result, error) {
 	log.Info("Reconciling Cluster")
 
-	// If the OpenStackCluster doesn't have our finalizer, add it.
+	// If the MetamorphCluster doesn't have our finalizer, add it.
 	controllerutil.AddFinalizer(metamorphCluster, capm.ClusterFinalizer)
 	// Register the finalizer immediately to avoid orphaning Metamorph resources on delete
 	if err := patchHelper.Patch(ctx, metamorphCluster); err != nil {
@@ -142,7 +143,7 @@ func (r *MetamorphClusterReconciler) reconcileNormal(ctx context.Context, log lo
 	log.Info("Got Cluster info==", metamorphCluster.Spec.ControlPlaneEndpoint.Host)
 
 	metamorphCluster.Status.Ready = true
-	log.Info("Reconciled Cluster create successfully")
+	log.Info("Reconciled Cluster created successfully")
 	return ctrl.Result{}, nil
 }
 

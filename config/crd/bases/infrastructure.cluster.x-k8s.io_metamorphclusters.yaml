@@ -61,14 +61,14 @@ spec:
           description: MetamorphClusterSpec defines the desired state of MetamorphCluster
           properties:
             controlPlaneEndpoint:
-              description: Foo is an example field of MetamorphCluster. Edit MetamorphCluster_types.go
-                to remove/update
+              description: ControlPlaneEndpoint APIEndpoint `json:"controlPlaneEndpoint"`
               properties:
                 host:
-                  description: Host is the hostname on which the API server is serving.
+                  description: The hostname on which the API server is serving.
                   type: string
                 port:
-                  description: Port is the port on which the API server is serving.
+                  description: The port on which the API server is serving.
+                  format: int32
                   type: integer
               required:
               - host

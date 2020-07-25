@@ -18,6 +18,7 @@ package v1alpha3
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha3"
 	capierrors "sigs.k8s.io/cluster-api/errors"
 )
 
@@ -32,8 +33,8 @@ type MetamorphClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of MetamorphCluster. Edit MetamorphCluster_types.go to remove/update
-	ControlPlaneEndpoint APIEndpoint `json:"controlPlaneEndpoint"`
+	//ControlPlaneEndpoint APIEndpoint `json:"controlPlaneEndpoint"`
+	ControlPlaneEndpoint clusterv1.APIEndpoint `json:"controlPlaneEndpoint"`
 }
 
 // MetamorphClusterStatus defines the observed state of MetamorphCluster

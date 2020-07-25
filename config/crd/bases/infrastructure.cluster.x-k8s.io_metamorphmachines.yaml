@@ -59,7 +59,7 @@ spec:
         spec:
           description: MetamorphMachineSpec defines the desired state of MetamorphMachine
           properties:
-            IPMISecret:
+            IPMIDetails:
               description: IPMIDetails contains the IPMI details of target node.
               properties:
                 address:
