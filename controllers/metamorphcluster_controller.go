@@ -80,14 +80,14 @@ func (r *MetamorphClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 
 	}
 
-	if util.IsPaused(cluster, metamorphCluster) {
-		log.Info("MetamorphCluster or linked Cluster is marked as paused. Won't reconcile")
-		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
-	}
-
 	if cluster == nil {
 		log.Info("Cluster Controller has not yet set OwnerRef on MetamorphCluster")
 		return ctrl.Result{}, nil
+	}
+
+	if util.IsPaused(cluster, metamorphCluster) {
+		log.Info("MetamorphCluster or linked Cluster is marked as paused. Won't reconcile")
+		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
 	}
 
 	log = log.WithValues("cluster", cluster.Name)
