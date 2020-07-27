@@ -71,7 +71,6 @@ func (r *MetamorphClusterReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result,
 
 	// Fetch the Cluster.
 	cluster, err := util.GetOwnerCluster(ctx, r.Client, metamorphCluster.ObjectMeta)
-	log.Info("Printing cluster details: ", cluster)
 	if err != nil {
 		error := capierrors.InvalidConfigurationClusterError
 		metamorphCluster.Status.FailureReason = &error
