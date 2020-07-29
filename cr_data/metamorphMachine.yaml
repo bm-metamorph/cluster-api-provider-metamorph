@@ -1,0 +1,15 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+kind: MetamorphMachine
+metadata:
+  name: test1-controlplane-0
+spec:
+  IPMIDetails:
+    address: redfish://192.168.56.110/redfish/v1
+    credentialsName: test1-controlplane-0-secret
+  image:
+    checksum: http://192.168.56.101:31180/ubuntu-18.04.4-server-amd64.iso.md5sum
+    url: http://192.168.56.101:31180/ubuntu-18.04.4-server-amd64.iso
+  online: true
+  userData:
+    name: test1-controlplane-0-user-data
+    namespace: metamorph
