@@ -1,0 +1,8 @@
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
+kind: MetamorphCluster
+metadata:
+  name: test1
+spec:
+    controlPlaneEndpoint:
+      host: 127.0.0.1
+      port: 51954
