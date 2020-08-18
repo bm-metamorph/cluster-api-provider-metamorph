@@ -4,7 +4,7 @@ commonLabels:
 
 bases:
 - crd
-- webhook # Disable this if you're not using the webhook functionality.
+#- webhook # Disable this if you're not using the webhook functionality.
 - default
 
 #patchesJson6902:
