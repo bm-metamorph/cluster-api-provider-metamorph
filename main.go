@@ -31,9 +31,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
-	"github.com/gpsingh-1991/cluster-api-provider-metamorph/controllers"
-	"github.com/gpsingh-1991/cluster-api-provider-metamorph/pkg/record"
+	capm "github.com/bm-metamorph/cluster-api-provider-metamorph/api/v1alpha3"
+	"github.com/bm-metamorph/cluster-api-provider-metamorph/controllers"
+	"github.com/bm-metamorph/cluster-api-provider-metamorph/pkg/record"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -113,7 +113,6 @@ func main() {
 	if watchNamespace != "" {
 		setupLog.Info("Watching cluster-api objects only in namespace for reconciliation", "namespace", watchNamespace)
 	}
-
 
 	ctrl.SetLogger(klogr.New())
 	broadcaster := cgrecord.NewBroadcasterWithCorrelatorOptions(cgrecord.CorrelatorOptions{

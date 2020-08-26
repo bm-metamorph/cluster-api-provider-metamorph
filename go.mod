@@ -1,4 +1,4 @@
-module github.com/gpsingh-1991/cluster-api-provider-metamorph
+module github.com/bm-metamorph/cluster-api-provider-metamorph
 
 go 1.13
 
@@ -8,6 +8,7 @@ require (
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/pkg/errors v0.9.1
+	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.17.8
 	k8s.io/apimachinery v0.17.8
 	k8s.io/client-go v0.17.8

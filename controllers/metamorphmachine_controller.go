@@ -26,9 +26,11 @@ import (
 	"strings"
 	"time"
 
+	capm "github.com/bm-metamorph/cluster-api-provider-metamorph/api/v1alpha3"
 	"github.com/go-logr/logr"
 	resty "github.com/go-resty/resty/v2"
-	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
+	"gopkg.in/yaml.v2"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -188,26 +190,6 @@ func (r *MetamorphMachineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		).
 		Complete(r)
 
-	// return controller.Watch(
-	// 	&source.Kind{Type: &clusterv1.Cluster{}},
-	// 	&handler.EnqueueRequestsFromMapFunc{
-	// 		ToRequests: handler.ToRequestsFunc(r.requeueMetamorphMachinesForUnpausedCluster),
-	// 	},
-	// 	predicate.Funcs{
-	// 		UpdateFunc: func(e event.UpdateEvent) bool {
-	// 			oldCluster := e.ObjectOld.(*clusterv1.Cluster)
-	// 			newCluster := e.ObjectNew.(*clusterv1.Cluster)
-	// 			return oldCluster.Spec.Paused && !newCluster.Spec.Paused
-	// 		},
-	// 		CreateFunc: func(e event.CreateEvent) bool {
-	// 			cluster := e.Object.(*clusterv1.Cluster)
-	// 			return !cluster.Spec.Paused
-	// 		},
-	// 		DeleteFunc: func(e event.DeleteEvent) bool {
-	// 			return false
-	// 		},
-	// 	},
-	// )
 }
 
 func (r *MetamorphMachineReconciler) reconcileNormal(ctx context.Context, logger logr.Logger, patchHelper *patch.Helper, machine *clusterv1.Machine, metamorphMachine *capm.MetamorphMachine, cluster *clusterv1.Cluster, metamorphCluster *capm.MetamorphCluster) (_ ctrl.Result, reterr error) {
@@ -234,82 +216,140 @@ func (r *MetamorphMachineReconciler) reconcileNormal(ctx context.Context, logger
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	//userData, err := r.getBootstrapData(machine, metamorphMachine)
-	//if err != nil {
-	//	return ctrl.Result{}, err
-	//}
+	bootstrapData, err := r.getBootstrapData(machine, metamorphMachine)
+	if err != nil {
+		logger.Info(bootstrapData)
+		return ctrl.Result{}, err
+	}
+	logger.Info("bootstrapData")
+
+	logger.Info(bootstrapData)
+
+	userData, err := r.getUserData(machine, metamorphMachine)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	userDataDecoded, err := base64.StdEncoding.DecodeString(userData)
+	if err != nil {
+		fmt.Println("decode error:", err)
+	}
 
 	logger.Info("Creating Machine")
 
-	//clusterName := fmt.Sprintf("%s-%s", cluster.ObjectMeta.Namespace, cluster.Name)
+	var metamorphNode capm.Node
+
+	logger.Info("*******")
+	yaml.Unmarshal(userDataDecoded, &metamorphNode)
 
 	if metamorphMachine.Spec.IPMIDetails.Address == "" {
 		logger.Info("Node Address missing.")
 		return ctrl.Result{}, nil
 	}
+	nodeIPAddress := strings.Split(metamorphMachine.Spec.IPMIDetails.Address, "/")[2]
+	logger.Info("Node IPMI IP address retrieved ", nodeIPAddress)
 
-	r.getOrCreate(ctx, logger, patchHelper, machine, metamorphMachine, cluster, metamorphCluster)
+	secret := &corev1.Secret{}
+	key := types.NamespacedName{
+		Namespace: machine.Namespace,
+		Name:      metamorphMachine.Spec.IPMIDetails.CredentialsName,
+	}
+	if err := r.Client.Get(context.TODO(), key, secret); err != nil {
+		err = errors.Wrapf(err, "failed to retrieve IPMI Credentials for Metamorph Machine %s/%s", machine.Namespace, metamorphMachine.Name)
+		return ctrl.Result{}, err
+	}
+	IPMIUserName, ok := secret.Data["username"]
+	IPMIPassword, ok := secret.Data["password"]
 
-	return ctrl.Result{}, nil
+	if !ok {
+		err := errors.New("error retrieving bootstrap data: secret value key is missing")
+		return ctrl.Result{}, err
+	}
+
+	//logger.Info(metamorphNode.IPMIIP)
+
+	//IpmiIP := strings.Split(metamorphMachine.Spec.IPMIDetails.Address, "/")[2]
+
+	metamorphNode.Name = metamorphMachine.Name
+	metamorphNode.IPMIIP = nodeIPAddress
+	metamorphNode.IPMIUser = string(IPMIUserName)
+	metamorphNode.IPMIPassword = string(IPMIPassword)
+	metamorphNode.ISOURL = metamorphMachine.Spec.Image.URL
+	metamorphNode.ISOChecksum = metamorphMachine.Spec.Image.Checksum
+	metamorphNode.CloudInit = bootstrapData
+
+	//logger.Info(metamorphNode.IPMIIP)
+	//logger.Info("*******")
+
+	// out, err := yaml.Marshal(&metamorphNode)
+	// fmt.Println(string(out))
+	// fmt.Println(err)
+
+	//clusterName := fmt.Sprintf("%s-%s", cluster.ObjectMeta.Namespace, cluster.Name)
+
+	return r.getOrCreate(ctx, logger, patchHelper, machine, metamorphMachine, &metamorphNode, cluster, metamorphCluster)
+
+	//return ctrl.Result{}, nil
+	//return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, nil
 }
 
-func (r *MetamorphMachineReconciler) getOrCreate(ctx context.Context, logger logr.Logger, patchHelper *patch.Helper, machine *clusterv1.Machine, metamorphMachine *capm.MetamorphMachine, cluster *clusterv1.Cluster, metamorphCluster *capm.MetamorphCluster) (_ ctrl.Result, reterr error) {
+func (r *MetamorphMachineReconciler) getOrCreate(ctx context.Context, logger logr.Logger, patchHelper *patch.Helper, machine *clusterv1.Machine, metamorphMachine *capm.MetamorphMachine, metamorphNode *capm.Node, cluster *clusterv1.Cluster, metamorphCluster *capm.MetamorphCluster) (_ ctrl.Result, reterr error) {
 
 	logger.Info(" From Inside getOrCreate \n\n")
-	nodeId := "0ed63609-7cdc-4074-81a9-b7b0e9a8a5cd"
-	metamorphMachine.Status.ProviderID = &nodeId
+	//nodeID := "0ed63609-7cdc-4074-81a9-b7b0e9a8a5cd"
+	//metamorphMachine.Status.ProviderID = &nodeID
+
 	if metamorphMachine.Status.ProviderID != nil {
 
 		metamorphNodeEndpoint := fmt.Sprintf("%s/node/%s", metamorphEndpoint, *metamorphMachine.Status.ProviderID)
 
 		client := resty.New()
-		resp, err := client.R().
-			EnableTrace().
-			Get(metamorphNodeEndpoint)
-		//logger.Info("Response is", resp)
+		resp, err := client.R().EnableTrace().Get(metamorphNodeEndpoint)
+		json.Unmarshal(resp.Body(), metamorphNode)
+
 		fmt.Println(resp)
+		fmt.Println(metamorphNode.State)
 		fmt.Println(err)
-		//return ctrl.Result{}, nil
+		if metamorphNode.State == "readywait" {
+			metamorphNode.State = "ready"
+			reqBody, err := json.Marshal(&metamorphNode)
+			resp, err := client.R().EnableTrace().SetHeader("Content-Type", "application/json").SetBody([]byte(reqBody)).Put(metamorphNodeEndpoint)
+			fmt.Println(resp)
+			fmt.Println(err)
+		}
+		if metamorphNode.State == "setupreadywait" {
+			metamorphNode.State = "setupready"
+			reqBody, err := json.Marshal(&metamorphNode)
+			resp, err := client.R().EnableTrace().SetHeader("Content-Type", "application/json").SetBody([]byte(reqBody)).Put(metamorphNodeEndpoint)
+			fmt.Println(resp)
+			fmt.Println(err)
+		}
+		if metamorphNode.State == "deployed" {
+			//metamorphMachine.Status.ProviderID =
+			providerID := fmt.Sprintf("metamorph://%s", *metamorphMachine.Status.ProviderID)
+			metamorphMachine.Spec.ProviderID = &providerID
+			metamorphMachine.Status.Ready = true
+			return ctrl.Result{}, nil
+
+		}
+		if metamorphNode.State == "failed" {
+			//metamorphMachine.Status.ProviderID =
+			providerID := fmt.Sprintf("metamorph://mtn52/%s", *metamorphMachine.Status.ProviderID)
+			metamorphMachine.Spec.ProviderID = &providerID
+			metamorphMachine.Status.Ready = true
+			return ctrl.Result{}, nil
+
+		}
+
+		if metamorphMachine.Annotations == nil {
+			metamorphMachine.Annotations = map[string]string{}
+		}
+		metamorphMachine.Annotations["cluster-api-provider-metamorph"] = "true"
 
 	} else {
-		nodeIPAddress := strings.Split(metamorphMachine.Spec.IPMIDetails.Address, "/")[2]
-		logger.Info("Node IPMI IP address retrieved ", nodeIPAddress)
+		reqBody, err := json.Marshal(&metamorphNode)
+		//fmt.Println(string(out))
+		fmt.Println(err)
 
-		secret := &corev1.Secret{}
-		key := types.NamespacedName{
-			Namespace: machine.Namespace,
-			Name:      metamorphMachine.Spec.IPMIDetails.CredentialsName,
-		}
-		if err := r.Client.Get(context.TODO(), key, secret); err != nil {
-			err = errors.Wrapf(err, "failed to retrieve IPMI Credentials for Metamorph Machine %s/%s", machine.Namespace, metamorphMachine.Name)
-			return ctrl.Result{}, err
-		}
-		userName, ok := secret.Data["username"]
-		password, ok := secret.Data["password"]
-
-		if !ok {
-			err := errors.New("error retrieving bootstrap data: secret value key is missing")
-			return ctrl.Result{}, err
-		}
-
-		crdinfoString := " { \"name\" : \"%v\"," +
-			" \"ISOURL\" : \"%v\", " +
-			" \"ISOChecksum\" : \"%v\", " +
-			" \"IPMIUser\": \"%v\", " +
-			" \"IPMIPassword\" : \"%v\", " +
-			" \"IPMIIP\" : \"%v\", " +
-			" \"disableCertVerification\" : %v }"
-
-		crdinfoString = fmt.Sprintf(crdinfoString,
-			metamorphMachine.Name,
-			metamorphMachine.Spec.Image.URL,
-			metamorphMachine.Spec.Image.Checksum,
-			string(userName),
-			string(password),
-			nodeIPAddress,
-			metamorphMachine.Spec.IPMIDetails.DisableCertificateVerification,
-		)
-		logger.Info(crdinfoString)
 		metamorphNodeEndpoint := fmt.Sprintf("%s/node", metamorphEndpoint)
 		logger.Info(metamorphNodeEndpoint)
 
@@ -319,13 +359,13 @@ func (r *MetamorphMachineReconciler) getOrCreate(ctx context.Context, logger log
 
 		resp, err := restyClient.R().EnableTrace().
 			SetHeader("Content-Type", "application/json").
-			SetBody([]byte(crdinfoString)).Post(metamorphNodeEndpoint)
+			SetBody([]byte(reqBody)).Post(metamorphNodeEndpoint)
 
 		if (err == nil) && (resp.StatusCode() == http.StatusOK) {
 			err = json.Unmarshal(resp.Body(), &resultBody)
 		} else {
 			logger.Info("Trace info:", resp.Request.TraceInfo())
-			err = errors.Wrap(err, fmt.Sprintf("Post request failed : URL - %v, reqbody - %v", metamorphNodeEndpoint, crdinfoString))
+			err = errors.Wrap(err, fmt.Sprintf("Post request failed : URL - %v, reqbody - %v", metamorphNodeEndpoint, reqBody))
 			return ctrl.Result{}, err
 		}
 
@@ -335,9 +375,12 @@ func (r *MetamorphMachineReconciler) getOrCreate(ctx context.Context, logger log
 		metamorphMachine.Status.ProviderID = &nodeUUID
 		//return ctrl.Result{}, nil
 	}
-	return ctrl.Result{}, nil
+
+	fmt.Println("Requeue after 15 sec")
+	return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, nil
 }
 
+// MetamorphClusterToMetamorphMachines func
 func (r *MetamorphMachineReconciler) MetamorphClusterToMetamorphMachines(o handler.MapObject) []ctrl.Request {
 	result := []ctrl.Request{}
 	c, ok := o.Object.(*capm.MetamorphCluster)
@@ -404,6 +447,25 @@ func (r *MetamorphMachineReconciler) requestsForCluster(namespace, name string) 
 		}
 	}
 	return result
+}
+
+func (r *MetamorphMachineReconciler) getUserData(machine *clusterv1.Machine, metamorphMachine *capm.MetamorphMachine) (string, error) {
+	if metamorphMachine.Spec.UserData.Name == "" {
+		return "", errors.New("error retrieving Userdata: linked metamorphMachine's userData.Name is nil")
+	}
+
+	secret := &corev1.Secret{}
+	key := types.NamespacedName{Namespace: metamorphMachine.Spec.UserData.Namespace, Name: metamorphMachine.Spec.UserData.Name}
+	if err := r.Client.Get(context.TODO(), key, secret); err != nil {
+		return "", errors.Wrapf(err, "failed to retrieve Userdata secret for MetaMorph Machine %s/%s", machine.Namespace, metamorphMachine.Name)
+	}
+
+	value, ok := secret.Data["userData"]
+	if !ok {
+		return "", errors.New("error retrieving userdata: secret value key is missing")
+	}
+
+	return base64.StdEncoding.EncodeToString(value), nil
 }
 
 func (r *MetamorphMachineReconciler) getBootstrapData(machine *clusterv1.Machine, metamorphMachine *capm.MetamorphMachine) (string, error) {

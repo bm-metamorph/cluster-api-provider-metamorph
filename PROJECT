@@ -1,5 +1,5 @@
 domain: cluster.x-k8s.io
-repo: github.com/gpsingh1991/cluster-api-provider-metamorph
+repo: github.com/bm-metamorph/cluster-api-provider-metamorph
 resources:
 - group: infrastructure
   kind: MetamorphCluster
