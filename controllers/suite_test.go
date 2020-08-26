@@ -30,7 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	infrastructurev1alpha3 "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
+	infrastructurev1alpha3 "github.com/bm-metamorph/cluster-api-provider-metamorph/api/v1alpha3"
 	// +kubebuilder:scaffold:imports
 )
 

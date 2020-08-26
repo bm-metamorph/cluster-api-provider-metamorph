@@ -30,6 +30,8 @@ const (
 
 // MetamorphMachineSpec defines the desired state of MetamorphMachine
 type MetamorphMachineSpec struct {
+	ProviderID *string `json:"providerID,omitempty"`
+
 	Online bool `json:"online"`
 
 	// Image is the image to be deployed.

@@ -83,6 +83,8 @@ spec:
               type: object
             online:
               type: boolean
+            providerID:
+              type: string
             userData:
               description: SecretReference represents a Secret Reference. It has enough information to retrieve secret in any namespace
               properties:

@@ -20,8 +20,8 @@ import (
 	"context"
 	"time"
 
+	capm "github.com/bm-metamorph/cluster-api-provider-metamorph/api/v1alpha3"
 	"github.com/go-logr/logr"
-	capm "github.com/gpsingh-1991/cluster-api-provider-metamorph/api/v1alpha3"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/record"
@@ -146,6 +146,7 @@ func (r *MetamorphClusterReconciler) reconcileNormal(ctx context.Context, log lo
 	return ctrl.Result{}, nil
 }
 
+// SetupWithManager func
 func (r *MetamorphClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&capm.MetamorphCluster{}).
