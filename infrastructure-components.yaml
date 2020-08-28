@@ -510,9 +510,12 @@ spec:
       - args:
         - --metrics-addr=127.0.0.1:8080
         - --enable-leader-election
+        env:
+        - name: METAMORPH_ENDPOINT
+          value: ${METAMORPH_ENDPOINT}
         command:
         - /manager
-        image: gpsingh1991/controller:latest
+        image: quay.io/metamorph/cluster-api-metamorph-controller:latest
         imagePullPolicy: Always
         name: manager
         resources:
