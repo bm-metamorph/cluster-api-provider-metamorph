@@ -309,6 +309,7 @@ func (r *MetamorphMachineReconciler) getOrCreate(ctx context.Context, logger log
 		fmt.Println(resp)
 		fmt.Println(metamorphNode.State)
 		fmt.Println(err)
+		metamorphMachine.Status.InstanceState = metamorphNode.State
 		if metamorphNode.State == "readywait" {
 			metamorphNode.State = "ready"
 			reqBody, err := json.Marshal(&metamorphNode)
@@ -333,9 +334,9 @@ func (r *MetamorphMachineReconciler) getOrCreate(ctx context.Context, logger log
 		}
 		if metamorphNode.State == "failed" {
 			//metamorphMachine.Status.ProviderID =
-			providerID := fmt.Sprintf("metamorph://mtn52/%s", *metamorphMachine.Status.ProviderID)
+			providerID := fmt.Sprintf("metamorph://%s", *metamorphMachine.Status.ProviderID)
 			metamorphMachine.Spec.ProviderID = &providerID
-			metamorphMachine.Status.Ready = true
+			metamorphMachine.Status.Ready = false
 			return ctrl.Result{}, nil
 
 		}

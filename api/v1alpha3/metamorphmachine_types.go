@@ -51,6 +51,8 @@ type MetamorphMachineStatus struct {
 	// +optional
 	Ready bool `json:"ready"`
 
+	InstanceState string `json:"state,omitempty"`
+
 	// ddresses is a list of addresses assigned to the machine.
 	// +optional
 	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`

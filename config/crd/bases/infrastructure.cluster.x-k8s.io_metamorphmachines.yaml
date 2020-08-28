@@ -130,6 +130,8 @@ spec:
             ready:
               description: Ready is true when the provider resource is ready.
               type: boolean
+            state:
+              type: string
           type: object
       type: object
   version: v1alpha3
