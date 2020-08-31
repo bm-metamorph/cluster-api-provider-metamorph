@@ -13,7 +13,7 @@ spec:
     description: Cluster to which this MetamorphMachine belongs
     name: Cluster
     type: string
-  - JSONPath: .status.instanceState
+  - JSONPath: .status.state
     description: Metamorph node state
     name: State
     type: string

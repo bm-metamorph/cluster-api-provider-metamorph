@@ -306,7 +306,7 @@ func (r *MetamorphMachineReconciler) getOrCreate(ctx context.Context, logger log
 		resp, err := client.R().EnableTrace().Get(metamorphNodeEndpoint)
 		json.Unmarshal(resp.Body(), metamorphNode)
 
-		fmt.Println(resp)
+		//fmt.Println(resp)
 		fmt.Println(metamorphNode.State)
 		fmt.Println(err)
 		metamorphMachine.Status.InstanceState = metamorphNode.State
@@ -358,6 +358,7 @@ func (r *MetamorphMachineReconciler) getOrCreate(ctx context.Context, logger log
 		restyClient := resty.New()
 		restyClient.SetDebug(true)
 
+		fmt.Println("Node Doesn't exist. Creating a new Node")
 		resp, err := restyClient.R().EnableTrace().
 			SetHeader("Content-Type", "application/json").
 			SetBody([]byte(reqBody)).Post(metamorphNodeEndpoint)
@@ -377,8 +378,8 @@ func (r *MetamorphMachineReconciler) getOrCreate(ctx context.Context, logger log
 		//return ctrl.Result{}, nil
 	}
 
-	fmt.Println("Requeue after 15 sec")
-	return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, nil
+	fmt.Println("Requeue after 30 sec")
+	return ctrl.Result{Requeue: true, RequeueAfter: 30 * time.Second}, nil
 }
 
 // MetamorphClusterToMetamorphMachines func
